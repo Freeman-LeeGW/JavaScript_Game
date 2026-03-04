@@ -1,0 +1,684 @@
+<<<<<<< HEAD
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>버그 잡는 코딩 지렁이</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        .scoreboard {
+            font-size: 1.2rem;
+            font-weight: bold;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+        .score-box {
+            background-color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        canvas {
+            background-color: #222;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .game-over-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .game-over-text {
+            color: #e74c3c;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            animation: blink 1s infinite;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1> 버그 잡는 코딩 지렁이</h1>
+        <div class="scoreboard">
+            <div class="score-box">Score: <span id="score">0</span></div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+    <div class="game-over-container" id="gameOverContainer">
+        <div class="game-over-text">System Crash!</div>
+        <button onclick="resetGame()">재시작 (Restart)</button>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const canvas = document.getElementById("gameCanvas");
+            const ctx = canvas.getContext("2d");
+            const box = 20; 
+            
+            let snake, normalFood, specialFood, score, d, currentD, gameLoop, normalFoodCount;
+            let audioCtx; 
+            let deathTimeout = null; // 죽음 유예 시간(코요테 타임)을 관리하는 변수
+            
+            const FIXED_SPEED = 500; 
+
+            const EMOJI_HEAD = "\uD83E\uDD13"; 
+            const EMOJI_FOOD = "\uD83D\uDCBB"; 
+            const EMOJI_BUG = "\uD83D\uDC7E"; 
+
+            function initAudio() {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            }
+
+            function playSound(type) {
+                if (!audioCtx) return;
+                
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                const now = audioCtx.currentTime;
+                
+                if (type === 'eat') {
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(440, now); 
+                    oscillator.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.1);
+                } else if (type === 'special') {
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(440, now);
+                    oscillator.frequency.linearRampToValueAtTime(1200, now + 0.2);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.2);
+                } else if (type === 'die') {
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(150, now);
+                    oscillator.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.5);
+                } else if (type === 'move') {
+                    oscillator.type = 'sine'; 
+                    oscillator.frequency.setValueAtTime(300, now); 
+                    gainNode.gain.setValueAtTime(0.03, now); 
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05); 
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.05);
+                }
+            }
+
+            document.addEventListener("keydown", direction);
+            function direction(event) {
+                initAudio(); 
+                
+                let key = event.key;
+                let newD = d;
+                // 조작 꼬임 방지를 위해 현재 화면에 그려진 지렁이의 진짜 방향(currentD)을 기준으로 판단합니다.
+                let referenceD = currentD || d; 
+                
+                if ((key === "ArrowLeft" || key === "Left") && referenceD != "RIGHT") newD = "LEFT";
+                else if ((key === "ArrowUp" || key === "Up") && referenceD != "DOWN") newD = "UP";
+                else if ((key === "ArrowRight" || key === "Right") && referenceD != "LEFT") newD = "RIGHT";
+                else if ((key === "ArrowDown" || key === "Down") && referenceD != "UP") newD = "DOWN";
+
+                // 방향이 입력되었거나 바뀌었을 때
+                if (newD !== d || d === null) {
+                    let wasNull = (d === null);
+                    d = newD;
+
+                    if (deathTimeout) {
+                        // 유예 시간(벽 부딪힘 찰나) 중에 방향키를 눌렀다면?
+                        clearTimeout(deathTimeout); // 죽음 취소!
+                        deathTimeout = null;
+                        draw(); // 즉시 게임 재개 (방향 전환 우선권)
+                    } else if (wasNull) {
+                        // 게임 최초 시작 시 답답하지 않게 즉시 출발
+                        clearTimeout(gameLoop);
+                        draw();
+                    }
+                }
+            }
+
+            function spawnFood() {
+                return {
+                    x: Math.floor(Math.random() * (canvas.width / box)) * box,
+                    y: Math.floor(Math.random() * (canvas.height / box)) * box
+                };
+            }
+
+            function initGame() {
+                snake = [];
+                snake[0] = { x: 9 * box, y: 10 * box }; 
+                
+                normalFood = spawnFood();
+                specialFood = null;
+                
+                score = 0;
+                normalFoodCount = 0;
+                d = null; 
+                currentD = null;
+                
+                if (deathTimeout) clearTimeout(deathTimeout);
+                deathTimeout = null;
+                
+                document.getElementById("score").innerText = score;
+                document.getElementById("gameOverContainer").style.display = "none";
+                
+                clearTimeout(gameLoop);
+                draw();
+            }
+
+            function collision(head, array) {
+                for (let i = 0; i < array.length; i++) {
+                    if (head.x == array[i].x && head.y == array[i].y) return true;
+                }
+                return false;
+            }
+
+            function drawSnakeSegment(ctx, x, y, size, color, isLast) {
+                ctx.beginPath();
+                const radius = size / 2;
+                const centerX = x + radius;
+                const centerY = y + radius;
+                
+                const drawRadius = isLast ? radius * 0.7 : radius;
+                
+                ctx.arc(centerX, centerY, drawRadius, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+                
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = "#1b5e20"; 
+                ctx.stroke();
+            }
+
+            function draw() {
+                ctx.fillStyle = "#222";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                if (!d) {
+                    ctx.fillStyle = "white";
+                    ctx.font = "16px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Press Arrow Keys to Start!", canvas.width / 2, canvas.height / 2 + 50);
+                    ctx.textAlign = "left"; 
+                }
+
+                ctx.textBaseline = "top";
+                ctx.font = "20px Arial";
+                
+                for (let i = 0; i < snake.length; i++) {
+                    if (i === 0) {
+                        ctx.fillStyle = "#FFF"; 
+                        ctx.fillText(EMOJI_HEAD, snake[i].x, snake[i].y);
+                    } else {
+                        const isLastSegment = (i === snake.length - 1);
+                        drawSnakeSegment(ctx, snake[i].x, snake[i].y, box, "#4CAF50", isLastSegment); 
+                    }
+                }
+
+                ctx.fillStyle = "#FFF";
+                ctx.fillText(EMOJI_FOOD, normalFood.x, normalFood.y);
+                if (specialFood) {
+                    ctx.fillText(EMOJI_BUG, specialFood.x, specialFood.y);
+                }
+
+                if (d) {
+                    let nextX = snake[0].x;
+                    let nextY = snake[0].y;
+
+                    if (d == "LEFT") nextX -= box;
+                    if (d == "UP") nextY -= box;
+                    if (d == "RIGHT") nextX += box;
+                    if (d == "DOWN") nextY += box;
+
+                    // 이동할 다음 위치가 벽이나 몸인지 먼저 체크
+                    let hitWall = nextX < 0 || nextY < 0 || nextX >= canvas.width || nextY >= canvas.height;
+                    let hitBody = collision({ x: nextX, y: nextY }, snake);
+
+                    if (hitWall || hitBody) {
+                        // 즉시 죽이지 않고 0.3초(300ms)의 방향 전환 유예 시간을 줍니다.
+                        deathTimeout = setTimeout(() => {
+                            playSound('die'); 
+                            document.getElementById("gameOverContainer").style.display = "flex";
+                        }, 300); 
+                        return; // 일반 루프를 일시정지 시킵니다.
+                    }
+
+                    // 충돌을 무사히 피했다면 (혹은 유예 시간 내에 방향을 틀었다면) 이동 확정
+                    currentD = d; // 성공적으로 이동한 진짜 방향을 저장
+                    let snakeX = nextX;
+                    let snakeY = nextY;
+
+                    if (snakeX == normalFood.x && snakeY == normalFood.y) {
+                        score += 10;
+                        normalFoodCount++;
+                        playSound('eat'); 
+                        normalFood = spawnFood();
+                        if (normalFoodCount % 5 === 0) specialFood = spawnFood();
+                    } else if (specialFood && snakeX == specialFood.x && snakeY == specialFood.y) {
+                        score += 30;
+                        specialFood = null;
+                        playSound('special'); 
+                        snake.push({ ...snake[snake.length - 1] }); 
+                    } else {
+                        snake.pop();
+                        playSound('move'); 
+                    }
+
+                    document.getElementById("score").innerText = score;
+                    snake.unshift({ x: snakeX, y: snakeY });
+                }
+
+                gameLoop = setTimeout(draw, FIXED_SPEED);
+            }
+
+            window.resetGame = function() {
+                initGame();
+            };
+
+            initGame();
+        };
+    </script>
+</body>
+=======
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>버그 잡는 코딩 지렁이</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        .scoreboard {
+            font-size: 1.2rem;
+            font-weight: bold;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+        .score-box {
+            background-color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        canvas {
+            background-color: #222;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .game-over-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+        .game-over-text {
+            color: #e74c3c;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            animation: blink 1s infinite;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1> 버그 잡는 코딩 지렁이</h1>
+        <div class="scoreboard">
+            <div class="score-box">Score: <span id="score">0</span></div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+    <div class="game-over-container" id="gameOverContainer">
+        <div class="game-over-text">System Crash!</div>
+        <button onclick="resetGame()">재시작 (Restart)</button>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const canvas = document.getElementById("gameCanvas");
+            const ctx = canvas.getContext("2d");
+            const box = 20; 
+            
+            let snake, normalFood, specialFood, score, d, currentD, gameLoop, normalFoodCount;
+            let audioCtx; 
+            let deathTimeout = null; // 죽음 유예 시간(코요테 타임)을 관리하는 변수
+            
+            const FIXED_SPEED = 500; 
+
+            const EMOJI_HEAD = "\uD83E\uDD13"; 
+            const EMOJI_FOOD = "\uD83D\uDCBB"; 
+            const EMOJI_BUG = "\uD83D\uDC7E"; 
+
+            function initAudio() {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            }
+
+            function playSound(type) {
+                if (!audioCtx) return;
+                
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                const now = audioCtx.currentTime;
+                
+                if (type === 'eat') {
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(440, now); 
+                    oscillator.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.1);
+                } else if (type === 'special') {
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(440, now);
+                    oscillator.frequency.linearRampToValueAtTime(1200, now + 0.2);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.2);
+                } else if (type === 'die') {
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(150, now);
+                    oscillator.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.5);
+                } else if (type === 'move') {
+                    oscillator.type = 'sine'; 
+                    oscillator.frequency.setValueAtTime(300, now); 
+                    gainNode.gain.setValueAtTime(0.03, now); 
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05); 
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.05);
+                }
+            }
+
+            document.addEventListener("keydown", direction);
+            function direction(event) {
+                initAudio(); 
+                
+                let key = event.key;
+                let newD = d;
+                // 조작 꼬임 방지를 위해 현재 화면에 그려진 지렁이의 진짜 방향(currentD)을 기준으로 판단합니다.
+                let referenceD = currentD || d; 
+                
+                if ((key === "ArrowLeft" || key === "Left") && referenceD != "RIGHT") newD = "LEFT";
+                else if ((key === "ArrowUp" || key === "Up") && referenceD != "DOWN") newD = "UP";
+                else if ((key === "ArrowRight" || key === "Right") && referenceD != "LEFT") newD = "RIGHT";
+                else if ((key === "ArrowDown" || key === "Down") && referenceD != "UP") newD = "DOWN";
+
+                // 방향이 입력되었거나 바뀌었을 때
+                if (newD !== d || d === null) {
+                    let wasNull = (d === null);
+                    d = newD;
+
+                    if (deathTimeout) {
+                        // 유예 시간(벽 부딪힘 찰나) 중에 방향키를 눌렀다면?
+                        clearTimeout(deathTimeout); // 죽음 취소!
+                        deathTimeout = null;
+                        draw(); // 즉시 게임 재개 (방향 전환 우선권)
+                    } else if (wasNull) {
+                        // 게임 최초 시작 시 답답하지 않게 즉시 출발
+                        clearTimeout(gameLoop);
+                        draw();
+                    }
+                }
+            }
+
+            function spawnFood() {
+                return {
+                    x: Math.floor(Math.random() * (canvas.width / box)) * box,
+                    y: Math.floor(Math.random() * (canvas.height / box)) * box
+                };
+            }
+
+            function initGame() {
+                snake = [];
+                snake[0] = { x: 9 * box, y: 10 * box }; 
+                
+                normalFood = spawnFood();
+                specialFood = null;
+                
+                score = 0;
+                normalFoodCount = 0;
+                d = null; 
+                currentD = null;
+                
+                if (deathTimeout) clearTimeout(deathTimeout);
+                deathTimeout = null;
+                
+                document.getElementById("score").innerText = score;
+                document.getElementById("gameOverContainer").style.display = "none";
+                
+                clearTimeout(gameLoop);
+                draw();
+            }
+
+            function collision(head, array) {
+                for (let i = 0; i < array.length; i++) {
+                    if (head.x == array[i].x && head.y == array[i].y) return true;
+                }
+                return false;
+            }
+
+            function drawSnakeSegment(ctx, x, y, size, color, isLast) {
+                ctx.beginPath();
+                const radius = size / 2;
+                const centerX = x + radius;
+                const centerY = y + radius;
+                
+                const drawRadius = isLast ? radius * 0.7 : radius;
+                
+                ctx.arc(centerX, centerY, drawRadius, 0, 2 * Math.PI);
+                ctx.fillStyle = color;
+                ctx.fill();
+                
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = "#1b5e20"; 
+                ctx.stroke();
+            }
+
+            function draw() {
+                ctx.fillStyle = "#222";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                if (!d) {
+                    ctx.fillStyle = "white";
+                    ctx.font = "16px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Press Arrow Keys to Start!", canvas.width / 2, canvas.height / 2 + 50);
+                    ctx.textAlign = "left"; 
+                }
+
+                ctx.textBaseline = "top";
+                ctx.font = "20px Arial";
+                
+                for (let i = 0; i < snake.length; i++) {
+                    if (i === 0) {
+                        ctx.fillStyle = "#FFF"; 
+                        ctx.fillText(EMOJI_HEAD, snake[i].x, snake[i].y);
+                    } else {
+                        const isLastSegment = (i === snake.length - 1);
+                        drawSnakeSegment(ctx, snake[i].x, snake[i].y, box, "#4CAF50", isLastSegment); 
+                    }
+                }
+
+                ctx.fillStyle = "#FFF";
+                ctx.fillText(EMOJI_FOOD, normalFood.x, normalFood.y);
+                if (specialFood) {
+                    ctx.fillText(EMOJI_BUG, specialFood.x, specialFood.y);
+                }
+
+                if (d) {
+                    let nextX = snake[0].x;
+                    let nextY = snake[0].y;
+
+                    if (d == "LEFT") nextX -= box;
+                    if (d == "UP") nextY -= box;
+                    if (d == "RIGHT") nextX += box;
+                    if (d == "DOWN") nextY += box;
+
+                    // 이동할 다음 위치가 벽이나 몸인지 먼저 체크
+                    let hitWall = nextX < 0 || nextY < 0 || nextX >= canvas.width || nextY >= canvas.height;
+                    let hitBody = collision({ x: nextX, y: nextY }, snake);
+
+                    if (hitWall || hitBody) {
+                        // 즉시 죽이지 않고 0.3초(300ms)의 방향 전환 유예 시간을 줍니다.
+                        deathTimeout = setTimeout(() => {
+                            playSound('die'); 
+                            document.getElementById("gameOverContainer").style.display = "flex";
+                        }, 300); 
+                        return; // 일반 루프를 일시정지 시킵니다.
+                    }
+
+                    // 충돌을 무사히 피했다면 (혹은 유예 시간 내에 방향을 틀었다면) 이동 확정
+                    currentD = d; // 성공적으로 이동한 진짜 방향을 저장
+                    let snakeX = nextX;
+                    let snakeY = nextY;
+
+                    if (snakeX == normalFood.x && snakeY == normalFood.y) {
+                        score += 10;
+                        normalFoodCount++;
+                        playSound('eat'); 
+                        normalFood = spawnFood();
+                        if (normalFoodCount % 5 === 0) specialFood = spawnFood();
+                    } else if (specialFood && snakeX == specialFood.x && snakeY == specialFood.y) {
+                        score += 30;
+                        specialFood = null;
+                        playSound('special'); 
+                        snake.push({ ...snake[snake.length - 1] }); 
+                    } else {
+                        snake.pop();
+                        playSound('move'); 
+                    }
+
+                    document.getElementById("score").innerText = score;
+                    snake.unshift({ x: snakeX, y: snakeY });
+                }
+
+                gameLoop = setTimeout(draw, FIXED_SPEED);
+            }
+
+            window.resetGame = function() {
+                initGame();
+            };
+
+            initGame();
+        };
+    </script>
+</body>
+>>>>>>> f7243ac6dfc21a793073b1768d98ad9f16eb8d01
+</html>

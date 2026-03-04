@@ -1,0 +1,242 @@
+<<<<<<< HEAD
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자바스크립트 미니 게임 모음</title>
+    <style>
+        /* 전체 배경 및 폰트 설정 */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* 메인 컨테이너 (흰색 박스) */
+        .container {
+            background: #ffffff;
+            width: 90%;
+            max-width: 500px;
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+
+        /* 제목 스타일 */
+        header h1 {
+            margin: 0;
+            font-size: 2rem;
+            color: #2c3e50;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            color: #888;
+            margin-top: 10px;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        /* 게임 메뉴 리스트 영역 */
+        .menu-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 개별 게임 카드 버튼 */
+        .game-card {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            border: 1px solid #eee;
+            border-radius: 15px;
+            padding: 15px 20px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* 카드에 마우스를 올렸을 때 애니메이션 효과 */
+        .game-card:hover {
+            background: #ffffff;
+            border-color: #4CAF50;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(76, 175, 80, 0.15);
+        }
+
+        /* 아이콘(이모지) 스타일 */
+        .game-card .icon {
+            font-size: 2.5rem;
+            margin-right: 20px;
+        }
+
+        /* 텍스트 정보 영역 */
+        .game-card .info {
+            text-align: left;
+        }
+
+        .game-card .info h2 {
+            margin: 0 0 5px 0;
+            font-size: 1.2rem;
+            color: #222;
+        }
+
+        .game-card .info p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>자바스크립트로 만든 게임 </h1>
+            <p>직접 코딩하여 만든 미니 웹 앱 모음입니다.</p>
+        </header>
+
+        <nav class="menu-list">
+            <a href="ji_game.html" class="game-card">
+                <span class="icon"></span>
+                <div class="info">
+                    <h2>버그 잡는 코딩 지렁이</h2>
+                    <p>에러를 잡아먹고 성장하는 스네이크 게임</p>
+                </div>
+            </a>
+
+        </nav>
+    </div>
+
+</body>
+=======
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>자바스크립트 미니 게임 모음</title>
+    <style>
+        /* 전체 배경 및 폰트 설정 */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* 메인 컨테이너 (흰색 박스) */
+        .container {
+            background: #ffffff;
+            width: 90%;
+            max-width: 500px;
+            padding: 40px 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+
+        /* 제목 스타일 */
+        header h1 {
+            margin: 0;
+            font-size: 2rem;
+            color: #2c3e50;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            color: #888;
+            margin-top: 10px;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        /* 게임 메뉴 리스트 영역 */
+        .menu-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 개별 게임 카드 버튼 */
+        .game-card {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            border: 1px solid #eee;
+            border-radius: 15px;
+            padding: 15px 20px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* 카드에 마우스를 올렸을 때 애니메이션 효과 */
+        .game-card:hover {
+            background: #ffffff;
+            border-color: #4CAF50;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(76, 175, 80, 0.15);
+        }
+
+        /* 아이콘(이모지) 스타일 */
+        .game-card .icon {
+            font-size: 2.5rem;
+            margin-right: 20px;
+        }
+
+        /* 텍스트 정보 영역 */
+        .game-card .info {
+            text-align: left;
+        }
+
+        .game-card .info h2 {
+            margin: 0 0 5px 0;
+            font-size: 1.2rem;
+            color: #222;
+        }
+
+        .game-card .info p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>자바스크립트로 만든 게임 </h1>
+            <p>직접 코딩하여 만든 미니 웹 앱 모음입니다.</p>
+        </header>
+
+        <nav class="menu-list">
+            <a href="ji_game.html" class="game-card">
+                <span class="icon"></span>
+                <div class="info">
+                    <h2>버그 잡는 코딩 지렁이</h2>
+                    <p>에러를 잡아먹고 성장하는 스네이크 게임</p>
+                </div>
+            </a>
+
+        </nav>
+    </div>
+
+</body>
+>>>>>>> f7243ac6dfc21a793073b1768d98ad9f16eb8d01
+</html>
